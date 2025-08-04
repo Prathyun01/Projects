@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #threejs-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .control-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+
+        .control-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .control-btn.active {
+            background: rgba(255, 50, 50, 0.7);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .status-panel {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            max-width: 400px;
+            pointer-events: auto;
+        }
+
+        .status-panel h2 {
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+
+        .command-display {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            min-height: 50px;
+            font-family: monospace;
+        }
+
+        .response-display {
+            background: rgba(100, 200, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            min-height: 50px;
+        }
+
+        .wave-indicator {
+            position: absolute;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 50px;
+            display: none;
+            pointer-events: none;
+        }
+
+        .wave-indicator.active {
+            display: block;
+        }
+
+        .wave-bar {
+            width: 4px;
+            height: 20px;
+            background: #4CAF50;
+            margin: 0 2px;
+            border-radius: 2px;
+            display: inline-block;
+            animation: wave 1s infinite ease-in-out;
+        }
+
+        .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes wave {
+            0%, 40%, 100% { transform: scaleY(0.4); }
+            20% { transform: scaleY(1.0); }
+        }
+
+        .assistant-name {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3em;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            z-index: 5;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
+            50% { transform: translate(-50%, -50%) translateY(-20px); }
+        }
+
+        .settings-panel {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            pointer-events: auto;
+        }
+
+        .settings-panel input, .settings-panel select {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 5px;
+            padding: 8px;
+            color: white;
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .settings-panel label {
+            display: block;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="threejs-container"></div>
+        
+        <div class="ui-overlay">
+            <div class="assistant-name">ARIA</div>
+            
+            <div class="status-panel">
+                <h2>Voice Assistant Status</h2>
+                <div class="command-display" id="command-display">
+                    Ready to listen...
+                </div>
+                <div class="response-display" id="response-display">
+                    Hello! I'm ARIA, your 3D voice assistant. Click the microphone to start.
+                </div>
+            </div>
+
+            <div class="settings-panel">
+                <h3>Settings</h3>
+                <label>Voice Speed:</label>
+                <input type="range" id="voice-speed" min="100" max="300" value="150">
+                <label>Voice Volume:</label>
+                <input type="range" id="voice-volume" min="0" max="1" step="0.1" value="0.9">
+                <label>Language:</label>
+                <select id="language">
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="es-ES">Spanish</option>
+                    <option value="fr-FR">French</option>
+                </select>
+            </div>
+
+            <div class="wave-indicator" id="wave-indicator">
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+            </div>
+
+            <div class="control-panel">
+                <button class="control-btn" id="mic-btn" title="Start/Stop Listening">
+                    🎤
+                </button>
+                <button class="control-btn" id="speak-btn" title="Speak">
+                    🔊
+                </button>
+                <button class="control-btn" id="stop-btn" title="Stop">
+                    ⏹️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // 3D Scene Setup
+        let scene, camera, renderer, assistant3D;
+        let isListening = false;
+        let isSpeaking = false;
+        let recognition;
+        let synthesis = window.speechSynthesis;
+
+        function init3D() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0);
+            document.getElementById('threejs-container').appendChild(renderer.domElement);
+
+            // Create 3D Assistant Character
+            createAssistant();
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            scene.add(directionalLight);
+
+            // Camera position
+            camera.position.z = 5;
+
+            // Start animation loop
+            animate();
+        }
+
+        function createAssistant() {
+            // Create a futuristic assistant character
+            const group = new THREE.Group();
+
+            // Main body (sphere)
+            const bodyGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const bodyMaterial = new THREE.MeshPhongMaterial({
+                color: 0x4CAF50,
+                transparent: true,
+                opacity: 0.8,
+                shininess: 100
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            group.add(body);
+
+            // Core light
+            const coreGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const coreMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 0.9
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            group.add(core);
+
+            // Orbital rings
+            for (let i = 0; i < 3; i++) {
+                const ringGeometry = new THREE.TorusGeometry(1.5 + i * 0.3, 0.02, 8, 32);
+                const ringMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x00ffff,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.rotation.x = Math.PI / 2;
+                ring.rotation.z = i * Math.PI / 3;
+                group.add(ring);
+            }
+
+            // Particles
+            const particleCount = 100;
+            const particles = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 10;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+            }
+            
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.8
+            });
+            const particleSystem = new THREE.Points(particles, particleMaterial);
+            group.add(particleSystem);
+
+            assistant3D = group;
+            scene.add(assistant3D);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (assistant3D) {
+                // Rotate the assistant
+                assistant3D.rotation.y += 0.01;
+                
+                // Animate based on state
+                if (isListening) {
+                    assistant3D.scale.setScalar(1 + Math.sin(Date.now() * 0.01) * 0.1);
+                    assistant3D.children[1].material.color.setHex(0xff0000); // Red core when listening
+                } else if (isSpeaking) {
+                    assistant3D.scale.setScalar(1 + Math.sin(Date.now() * 0.02) * 0.2);
+                    assistant3D.children[1].material.color.setHex(0x0000ff); // Blue core when speaking
+                } else {
+                    assistant3D.scale.setScalar(1);
+                    assistant3D.children[1].material.color.setHex(0x00ff00); // Green core when idle
+                }
+
+                // Animate rings
+                assistant3D.children.forEach((child, index) => {
+                    if (index > 1 && index < 5) { // Ring objects
+                        child.rotation.y += 0.005 * (index - 1);
+                    }
+                });
+
+                // Animate particles
+                if (assistant3D.children[5]) {
+                    const positions = assistant3D.children[5].geometry.attributes.position.array;
+                    for (let i = 0; i < positions.length; i += 3) {
+                        positions[i + 1] += Math.sin(Date.now() * 0.001 + i) * 0.01;
+                    }
+                    assistant3D.children[5].geometry.attributes.position.needsUpdate = true;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Voice Recognition Setup
+        function initVoiceRecognition() {
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+
+                recognition.onstart = function() {
+                    isListening = true;
+                    document.getElementById('mic-btn').classList.add('active');
+                    document.getElementById('wave-indicator').classList.add('active');
+                    document.getElementById('command-display').textContent = 'Listening...';
+                };
+
+                recognition.onresult = function(event) {
+                    const command = event.results[0][0].transcript;
+                    document.getElementById('command-display').textContent = command;
+                    processCommand(command);
+                };
+
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    document.getElementById('command-display').textContent = 'Error: ' + event.error;
+                    stopListening();
+                };
+
+                recognition.onend = function() {
+                    stopListening();
+                };
+            } else {
+                alert('Speech recognition not supported in this browser');
+            }
+        }
+
+        function startListening() {
+            if (recognition && !isListening) {
+                recognition.start();
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            document.getElementById('mic-btn').classList.remove('active');
+            document.getElementById('wave-indicator').classList.remove('active');
+            if (recognition) {
+                recognition.stop();
+            }
+        }
+
+        // Command Processing
+        async function processCommand(command) {
+            try {
+                const response = await fetch('/process_voice/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        action: 'process',
+                        command: command
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('response-display').textContent = data.response;
+                    speakResponse(data.response);
+                } else {
+                    document.getElementById('response-display').textContent = 'Error: ' + data.error;
+                }
+            } catch (error) {
+                console.error('Error processing command:', error);
+                document.getElementById('response-display').textContent = 'Connection error';
+            }
+        }
+
+        // Text-to-Speech
+        function speakResponse(text) {
+            if (synthesis) {
+                // Cancel any ongoing speech
+                synthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = parseFloat(document.getElementById('voice-speed').value) / 100;
+                utterance.volume = parseFloat(document.getElementById('voice-volume').value);
+                utterance.lang = document.getElementById('language').value;
+
+                utterance.onstart = function() {
+                    isSpeaking = true;
+                };
+
+                utterance.onend = function() {
+                    isSpeaking = false;
+                };
+
+                synthesis.speak(utterance);
+            }
+        }
+
+        // Utility Functions
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            init3D();
+            initVoiceRecognition();
+
+            // Control buttons
+            document.getElementById('mic-btn').addEventListener('click', function() {
+                if (isListening) {
+                    stopListening();
+                } else {
+                    startListening();
+                }
+            });
+
+            document.getElementById('speak-btn').addEventListener('click', function() {
+                const text = document.getElementById('response-display').textContent;
+                if (text && text !== 'Hello! I\'m ARIA, your voice assistant. Click the microphone to start.') {
+                    speakResponse(text);
+                } else {
+                    speakResponse('Hello! I am ARIA, your voice assistant. How can I help you today?');
+                }
+            });
+
+            document.getElementById('stop-btn').addEventListener('click', function() {
+                stopListening();
+                if (synthesis) {
+                    synthesis.cancel();
+                }
+                isSpeaking = false;
+            });
+
+            // Settings
+            document.getElementById('voice-speed').addEventListener('input', function() {
+                // Speed setting is applied in speakResponse function
+            });
+
+            document.getElementById('voice-volume').addEventListener('input', function() {
+                // Volume setting is applied in speakResponse function
+            });
+
+            document.getElementById('language').addEventListener('change', function() {
+                if (recognition) {
+                    recognition.lang = this.value;
+                }
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    if (isListening) {
+                        stopListening();
+                    } else {
+                        startListening();
+                    }
+                }
+                if (e.code === 'Escape') {
+                    stopListening();
+                    if (synthesis) {
+                        synthesis.cancel();
+                    }
+                    isSpeaking = false;
+                }
+            });
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // WebSocket connection for real-time communication
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = protocol + '//' + window.location.host + '/ws/voice/';
+            
+            try {
+                const socket = new WebSocket(wsUrl);
+                
+                socket.onopen = function(e) {
+                    console.log('WebSocket connected');
+                };
+                
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'voice_response') {
+                        document.getElementById('response-display').textContent = data.response;
+                        speakResponse(data.response);
+                    }
+                };
+                
+                socket.onclose = function(event) {
+                    console.log('WebSocket disconnected');
+                };
+                
+                socket.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                };
+                
+                return socket;
+            } catch (error) {
+                console.error('WebSocket connection failed:', error);
+                return null;
+            }
+        }
+
+        // Initialize WebSocket (optional)
+        // const socket = initWebSocket();
+
+        // Predefined commands for demo
+        const demoCommands = [
+            "What time is it?",
+            "What's the date today?",
+            "Search for artificial intelligence",
+            "Open YouTube",
+            "Open Google",
+            "Hello ARIA",
+            "Help me"
+        ];
+
+        // Add demo button functionality
+        function addDemoMode() {
+            const demoBtn = document.createElement('button');
+            demoBtn.className = 'control-btn';
+            demoBtn.innerHTML = '🎮';
+            demoBtn.title = 'Demo Mode';
+            demoBtn.style.position = 'absolute';
+            demoBtn.style.top = '30px';
+            demoBtn.style.left = '50%';
+            demoBtn.style.transform = 'translateX(-50%)';
+            demoBtn.style.pointerEvents = 'auto';
+            
+            demoBtn.addEventListener('click', function() {
+                const randomCommand = demoCommands[Math.floor(Math.random() * demoCommands.length)];
+                document.getElementById('command-display').textContent = randomCommand;
+                processCommand(randomCommand);
+            });
+            
+            document.querySelector('.ui-overlay').appendChild(demoBtn);
+        }
+
+        // Add demo mode after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            addDemoMode();
+        });
+    </script>
+</body>
+</html>

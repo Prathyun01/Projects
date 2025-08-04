@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Prediction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            text-align: center;
+            padding: 20px;
+        }
+        h2 {
+            color: #007bff;
+            font-size: 28px;
+        }
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+        }
+        label {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        input {
+            padding: 10px;
+            margin: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .prediction {
+            font-size: 22px;
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .chart {
+            margin-top: 20px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Stock Price Prediction</h2>
+    
+    <form method="POST">
+        {% csrf_token %}
+        <label for="ticker">Enter Stock Ticker (e.g., AAPL, TSLA):</label><br>
+        <input type="text" name="ticker" required>
+        <button type="submit">Predict</button>
+    </form>
+
+    {% if prediction %}
+        <h3 class="prediction">Predicted Stock Price (Next 30 Days): ${{ prediction|floatformat:2 }}</h3>
+        <img class="chart" src="data:image/png;base64,{{ chart_url }}" alt="Stock Prediction Chart">
+    {% endif %}
+
+</body>
+</html>

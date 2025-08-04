@@ -22,7 +22,7 @@ A modular Python-based face recognition system capable of detecting and recogniz
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/face_recognition_project.git
+   git clone https://github.com/Prathyun01/face_recognition_project.git
    cd face_recognition_project
    ```
 
@@ -61,11 +61,5 @@ A modular Python-based face recognition system capable of detecting and recogniz
 - Add REST API or web UI
 - Face registration interface
 - Logging and reports for recognition history
-
-## 📸 Screenshots
-
-*(Add image samples or results output here)*
-
----
-
+- 
 © 2025 Your Name. All rights reserved.
